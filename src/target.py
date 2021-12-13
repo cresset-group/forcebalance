@@ -12,7 +12,7 @@ import time
 from collections import OrderedDict
 import tarfile
 import forcebalance
-from forcebalance.nifty import row, col, printcool_dictionary, link_dir_contents, createWorkQueue, getWorkQueue, wq_wait1, getWQIds, wopen, warn_press_key, _exec, lp_load, LinkFile
+from forcebalance.nifty import row, col, printcool_dictionary, link_dir_contents, createWorkQueue, getWorkQueue, wq_wait1, getWQIds, wopen, warn_press_key, _exec, lp_load, LinkFile, CopyFile, copy_tree_over
 from forcebalance.finite_difference import fdwrap_G, fdwrap_H, f1d2p, f12d3p, in_fd
 from forcebalance.optimizer import Counter
 from forcebalance.output import getLogger
@@ -336,7 +336,17 @@ class Target(with_metaclass(abc.ABCMeta, forcebalance.BaseClass)):
         return Ans
 
     def link_from_tempdir(self,absdestdir):
-        link_dir_contents(os.path.join(self.root,self.tempdir), absdestdir)
+        # link_dir_contents(os.path.join(self.root,self.tempdir), absdestdir) # RVK replaced with below lines to copy files. Do not use copy_tree_over(os.path.join(self.root,self.tempdir), absdestdir). Does not work here.
+        abssrcdir = os.path.join(self.root,self.tempdir)
+        for fnm in os.listdir(abssrcdir):
+            srcfnm = os.path.join(abssrcdir, fnm)
+            destfnm = os.path.join(absdestdir, fnm)
+            if os.path.islink(destfnm) and not os.path.exists(destfnm):
+                os.remove(destfnm)
+            if os.path.isfile(srcfnm) or (os.path.isdir(srcfnm) and fnm == 'IC'):
+                if not os.path.exists(destfnm):
+                    # print(f"RVK Linking {srcfnm} to {destfnm}")
+                    CopyFile(srcfnm, destfnm)
 
     def refresh_temp_directory(self):
         """ Back up the temporary directory if desired, delete it
@@ -370,7 +380,8 @@ class Target(with_metaclass(abc.ABCMeta, forcebalance.BaseClass)):
         if hasattr(self, 'mol2'):
             for f in self.mol2:
                 if os.path.exists(os.path.join(self.root, self.tgtdir, f)):
-                    LinkFile(os.path.join(self.root, self.tgtdir, f), os.path.join(abstempdir, f))
+                    # LinkFile(os.path.join(self.root, self.tgtdir, f), os.path.join(abstempdir, f)) # RVK replaced with CopyFile
+                    CopyFile(os.path.join(self.root, self.tgtdir, f), os.path.join(abstempdir, f))
                 elif f not in self.FF.fnms:
                     logger.error("%s doesn't exist and it's not in the force field directory either" % f)
                     raise RuntimeError
@@ -752,7 +763,8 @@ class Target(with_metaclass(abc.ABCMeta, forcebalance.BaseClass)):
             np.savetxt("mvals.txt", mvals)
             forcebalance.nifty.lp_dump((self.FF, mvals), 'forcefield.p')
         os.chdir(cwd)
-        forcebalance.nifty.LinkFile(os.path.join(self.ffpd, 'forcefield.p'), 'forcefield.p')
+        # forcebalance.nifty.LinkFile(os.path.join(self.ffpd, 'forcefield.p'), 'forcefield.p') # RVK replace with CopyFile
+        forcebalance.nifty.CopyFile(os.path.join(self.ffpd, 'forcefield.p'), 'forcefield.p')
 
 class RemoteTarget(Target):
     def __init__(self,options,tgt_opts,forcefield):
@@ -791,9 +803,12 @@ class RemoteTarget(Target):
 
         # Link in the rpfx script.
         if len(self.rpfx) > 0:
-            forcebalance.nifty.LinkFile(os.path.join(os.path.split(__file__)[0],"data",self.rpfx),self.rpfx)
-        forcebalance.nifty.LinkFile(os.path.join(os.path.split(__file__)[0],"data","rtarget.py"),"rtarget.py")
-        forcebalance.nifty.LinkFile(os.path.join(self.root, self.tempdir, "target.tar.bz2"),"target.tar.bz2")
+            # forcebalance.nifty.LinkFile(os.path.join(os.path.split(__file__)[0],"data",self.rpfx),self.rpfx) # RVK replaced with CopyFile
+            forcebalance.nifty.CopyFile(os.path.join(os.path.split(__file__)[0],"data",self.rpfx),self.rpfx)
+        # forcebalance.nifty.LinkFile(os.path.join(os.path.split(__file__)[0],"data","rtarget.py"),"rtarget.py") # RVK replaced with CopyFile
+        forcebalance.nifty.CopyFile(os.path.join(os.path.split(__file__)[0],"data","rtarget.py"),"rtarget.py")
+        # forcebalance.nifty.LinkFile(os.path.join(self.root, self.tempdir, "target.tar.bz2"),"target.tar.bz2") # RVK replaced with CopyFile
+        forcebalance.nifty.CopyFile(os.path.join(self.root, self.tempdir, "target.tar.bz2"),"target.tar.bz2")
 
         wq = getWorkQueue()
 
