@@ -20,6 +20,7 @@ from forcebalance.hessian import Hessian
 from forcebalance.opt_geo_target import OptGeoTarget
 from forcebalance.torsion_profile import TorsionProfileTarget
 import networkx as nx
+from networkx.algorithms.dag import ancestors
 import numpy as np
 import sys
 from forcebalance.finite_difference import *
@@ -124,10 +125,47 @@ class SMIRNOFF_Reader(BaseReader):
         ## The parameter dictionary (defined in this file)
         self.pdict  = pdict
 
-    def build_pid(self, element, parameter):
+    # RVK added this function to recursively get the ancestors with python xml
+    def get_ancestors_recursively(self, element_tree, element, ancestors):
+        # while True:
+        if element_tree.getroot().find(".//{0}/..".format(element.tag)):
+            parent = element_tree.getroot().find(".//{0}/..".format(element.tag))
+            # print(f"parent->{parent}")
+            ancestors.append(parent)
+            # print(f"ancestors->{ancestors}")
+            element_new = parent
+            # print(f"element_new->{element_new}")
+            result = self.get_ancestors_recursively(element_tree, element_new, ancestors)
+            if result is not None:
+                return ancestors
+        else:
+            # print("in break")
+            return ancestors
+
+        # return ancestors
+
+    def build_pid(self, element, parameter, element_tree):
         """ Build the parameter identifier (see _link_ for an example)
         @todo Add a link here """
-        ParentType = ".".join([i.tag for i in list(element.iterancestors())][::-1][1:])
+        ## print(f"lxml=>element.iterancestors()=>{element.iterancestors()}")#<lxml.etree.AncestorsIterator object at 0x0000013B5D737E00>
+        ## print(f"lxml=>list(element.iterancestors())=>{list(element.iterancestors())}")#[<Element ProperTorsions at 0x13b5d730640>, <Element SMIRNOFF at 0x13b5d725e00>]
+        ## print(f"element=>{element}")
+        ## print(f"element_tree=>{element_tree}")
+        #parent = element_tree.getroot().find(".//{0}/..".format(element.tag)) # "parent=> <Element 'ProperTorsions' at 0x0000016665C14270>" ; findall gives array while find gives just 1. So using find.
+        ## print(f"find element parent=>{parent}")
+        #parent1 = element_tree.getroot().find(".//{0}/..".format(parent.tag)) # parent1=> <Element 'SMIRNOFF' at 0x0000016665BFEA40>
+        # print(f"find parent[0].tag parent1=>{parent1}")
+        #ancestors = []
+        #ancestors.append(parent)
+        #ancestors.append(parent1)
+        #print(f"ancestors=>{ancestors}") #ancestors=>[<Element 'ProperTorsions' at 0x000001B58E42C2C0>, <Element 'SMIRNOFF' at 0x000001B58E41DA90>]
+        ancestors = []
+        ancestors = self.get_ancestors_recursively(element_tree, element, ancestors)
+        # print(f"harcoded get ancestors=>{ancestors}")
+
+        # ParentType = ".".join([i.tag for i in list(element.iterancestors())][::-1][1:]) # RVK replaced lxml with xml.etree.ElementTree
+        ParentType = ".".join([i.tag for i in ancestors][::-1][1:])
+        # print(f"RVK ParentType=>{ParentType}")
         InteractionType = element.tag
         try:
             Involved = element.attrib["smirks"]
