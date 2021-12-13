@@ -117,9 +117,11 @@ from forcebalance.output import getLogger
 logger = getLogger(__name__)
 
 try:
-    from lxml import etree
+    # from lxml import etree
+    from xml.etree import ElementTree as etree # lxml.etree module implements the extended ElementTree API for XML
 except:
-    logger.warning("Failed to import lxml module, needed by OpenMM engine")
+    # logger.warning("Failed to import lxml module, needed by OpenMM engine") # RVK replaced lxml with xml.etree
+    logger.warning("Failed to import xml module, needed by OpenMM engine")
 
 FF_Extensions = {"itp" : "gmx",
                  "top" : "gmx",
@@ -372,7 +374,7 @@ class FF(forcebalance.BaseClass):
         Next, parse the file.  Currently we support two classes of
         files - text and XML.  The two types are treated very
         differently; for XML we use the parsers in libxml (via the
-        python lxml module), and for text files we have our own
+        python xml module), and for text files we have our own
         in-house parsing class.  Within text files, there is also a
         specialized GROMACS and TINKER parser as well as a generic
         text parser.
@@ -392,7 +394,7 @@ class FF(forcebalance.BaseClass):
 
         --- If XML: ---
 
-        The force field file is read in using the lxml Python module.  Specify
+        The force field file is read in using the xml Python module.  Specify
         which parameter you want to fit using by adding a 'parameterize' element
         to the end of the force field XML file, like so.
 
@@ -484,7 +486,8 @@ class FF(forcebalance.BaseClass):
             try:
                 self.ffdata[ffname] = etree.parse(absff)
             except NameError:
-                logger.error("If etree not defined, please check if lxml module has been installed")
+                # logger.error("If etree not defined, please check if lxml module has been installed") # RVK replaced lxml with xml.etree
+                logger.error("If etree not defined, please check if xml module has been installed")
                 raise
             self.ffdata_isxml[ffname] = True
             # Process the file
@@ -664,7 +667,7 @@ class FF(forcebalance.BaseClass):
         change a force field parameter.  I can create a list of tree
         elements (essentially pointers to elements within a tree), but
         this method breaks down when I copy the tree because I have no
-        way to refer to the copied tree elements.  Fortunately, lxml
+        way to refer to the copied tree elements.  Fortunately, xml
         gives me a way to represent a tree using a flat list, and my
         XML file 'locations' are represented using the positions in
         the list.
@@ -697,16 +700,28 @@ class FF(forcebalance.BaseClass):
             self.addff(ffnameScript, xmlScript=True)
             os.unlink(absScript)
 
-        for e in self.ffdata[ffname].getroot().xpath('//@parameterize/..'):
-            parameters_to_optimize = [i.strip() for i in e.get('parameterize').split(',')]
+        # for e in self.ffdata[ffname].getroot().xpath('//@parameterize/..'): # RVK replaced to work with xml.etree
+        for e in self.ffdata[ffname].getroot().findall('.//*[@parameterize]'):# RVK WORKS
+            # print(f"ffname => {ffname}")
+            # print(f"xml output => {etree.tostring(e)}")
+            # parameters_to_optimize = [i.strip() for i in e.get('parameterize').split(',')] # RVK replaced with xml.etree
+            parameters_to_optimize = [i.strip() for i in e.attrib['parameterize'].split(',')]
+            # print(f"params to optimize=> {parameters_to_optimize}")
             for p in parameters_to_optimize:
+                # print(f"p ==> {p}")
+                # print(f"e.attrib => {e.attrib}")
                 if p not in e.attrib:
-                    logger.error("Parameter \'%s\' is not found for \'%s\', please check %s" % (p, e.get('type'), ffname) )
+                    # print("RVK LOGGER ERROR")
+                    # logger.error("Parameter \'%s\' is not found for \'%s\', please check %s" % (p, e.get('type'), ffname) ) # RVK replaced to work with xml.etree
+                    logger.error("Parameter \'%s\' is not found for \'%s\', please check %s" % (p, e.attrib['type'], ffname) )
                     raise RuntimeError
-                pid = self.Readers[ffname].build_pid(e, p)
+                element_tree = self.ffdata[ffname]  # RVK added this
+                pid = self.Readers[ffname].build_pid(e, p, element_tree) # RVK edited corresponding function in smirnoffio.py
+                # pid = self.Readers[ffname].build_pid(e, p)
                 self.map[pid] = self.np
                 # offxml file later than v0.3 may have unit strings in the field
-                quantity_str = e.get(p)
+                # quantity_str = e.get(p) # RVK replaced with xml.etree
+                quantity_str = e.attrib[p]
                 res = re.search(r'^[-+]?[0-9]*\.?[0-9]*([eEdD][-+]?[0-9]+)?', quantity_str)
                 value_str, unit_str = quantity_str[:res.end()], quantity_str[res.end():]
                 self.assign_p0(self.np, float(value_str))
@@ -715,38 +730,52 @@ class FF(forcebalance.BaseClass):
                 self.np += 1
                 self.patoms.append([])
 
-        for e in self.ffdata[ffname].getroot().xpath('//@parameter_repeat/..'):
-            for field in e.get('parameter_repeat').split(','):
+        # for e in self.ffdata[ffname].getroot().xpath('//@parameter_repeat/..'): # RVK replaced to work with xml.etree
+        for e in self.ffdata[ffname].getroot().findall('.//*[@parameter_repeat]'):
+            # for field in e.get('parameter_repeat').split(','): # RVK replaced with xml.etree
+            for field in e.attrib['parameter_repeat'].split(','):
                 parameter_name = field.strip().split('=', 1)[0]
                 if parameter_name not in e.attrib:
-                    logger.error("Parameter \'%s\' is not found for \'%s\', please check %s" % (parameter_name, e.get('type'), ffname) )
+                    # logger.error("Parameter \'%s\' is not found for \'%s\', please check %s" % (parameter_name, e.get('type'), ffname) ) # RVK replaced with xml.etree
+                    logger.error("Parameter \'%s\' is not found for \'%s\', please check %s" % (parameter_name, e.attrib['type'], ffname) )
                     raise RuntimeError
-                dest = self.Readers[ffname].build_pid(e, parameter_name)
+                element_tree = self.ffdata[ffname]  # RVK added this
+                dest = self.Readers[ffname].build_pid(e, parameter_name, element_tree) # RVK edited corresponding function in smirnoffio.py
+                # dest = self.Readers[ffname].build_pid(e, parameter_name)
                 src  = field.strip().split('=', 1)[1]
                 if src in self.map:
                     self.map[dest] = self.map[src]
                 else:
                     warn_press_key("Warning: You wanted to copy parameter from %s to %s, but the source parameter does not seem to exist!" % (src, dest))
                 self.assign_field(self.map[dest],dest,ffname,fflist.index(e),parameter_name,1)
-                quantity_str = e.get(parameter_name)
+                # quantity_str = e.get(parameter_name) # RVK replaced with xml.etree
+                quantity_str = e.attrib[parameter_name]
                 res = re.search(r'^[-+]?[0-9]*\.?[0-9]*([eEdD][-+]?[0-9]+)?', quantity_str)
                 value_str, unit_str = quantity_str[:res.end()], quantity_str[res.end():]
-                quantity_str = e.get(parameter_name)
+                # quantity_str = e.get(parameter_name) # RVK replaced to work with xml.etree
+                quantity_str = e.attrib[parameter_name]
                 self.offxml_unit_strs[dest] = unit_str
 
-        for e in self.ffdata[ffname].getroot().xpath('//@parameter_eval/..'):
-            for field in split(r',(?![^\[]*[\]])', e.get('parameter_eval')):
+        # for e in self.ffdata[ffname].getroot().xpath('//@parameter_eval/..'): # RVK replaced to work with xml.etree
+        for e in self.ffdata[ffname].getroot().findall('.//*[@parameter_eval]/..'):
+            # for field in split(r',(?![^\[]*[\]])', e.get('parameter_eval')): # RVK replaced to work with xml.etree
+            for field in split(r',(?![^\[]*[\]])', e.attrib['parameter_eval']):
                 parameter_name = field.strip().split('=', 1)[0]
                 if parameter_name not in e.attrib:
-                    logger.error("Parameter \'%s\' is not found for \'%s\', please check %s" % (parameter_name, e.get('type'), ffname) )
+                    # logger.error("Parameter \'%s\' is not found for \'%s\', please check %s" % (parameter_name, e.get('type'), ffname) )#  RVK replaced to work with xml.etree
+                    logger.error("Parameter \'%s\' is not found for \'%s\', please check %s" % (parameter_name, e.attrib['type'], ffname) )
                     raise RuntimeError
-                dest = self.Readers[ffname].build_pid(e, parameter_name)
+                element_tree = self.ffdata[ffname]  # RVK added this
+                dest = self.Readers[ffname].build_pid(e, parameter_name, element_tree) # RVK edited corresponding function in smirnoffio.py
+                # dest = self.Readers[ffname].build_pid(e, parameter_name)
                 evalcmd  = field.strip().split('=', 1)[1]
                 self.assign_field(None,dest,ffname,fflist.index(e),parameter_name,None,evalcmd)
-                quantity_str = e.get(parameter_name)
+                # quantity_str = e.get(parameter_name) # RVK replaced to work with xml.etree
+                quantity_str = e.attrib[parameter_name]
                 res = re.search(r'^[-+]?[0-9]*\.?[0-9]*([eEdD][-+]?[0-9]+)?', quantity_str)
                 value_str, unit_str = quantity_str[:res.end()], quantity_str[res.end():]
-                quantity_str = e.get(parameter_name)
+                # quantity_str = e.get(parameter_name) # RVK replaced to work with xml.etree
+                quantity_str = e.attrib[parameter_name]
                 self.offxml_unit_strs[dest] = unit_str
 
     def make(self,vals=None,use_pvals=False,printdir=None,precision=12):
