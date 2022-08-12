@@ -150,7 +150,7 @@ class TorsionProfileTarget(Target):
                             fig, ax = plt.subplots()
                             dihedrals = np.array([i[0] for i in self.metadata['torsion_grid_ids']])
                             dsort = np.argsort(dihedrals)
-                            ax.plot(dihedrals[dsort], self.eqm[dsort], label='QM')
+                            ax.plot(dihedrals[dsort], self.eqm[dsort], label='QM/ANI')
                             if hasattr(self, 'emm_orig'):
                                 ax.plot(dihedrals[dsort], compute.emm[dsort], label='MM Current')
                                 ax.plot(dihedrals[dsort], self.emm_orig[dsort], label='MM Initial')
