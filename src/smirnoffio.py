@@ -39,10 +39,7 @@ import json
 
 logger = getLogger(__name__)
 try:
-    from simtk.openmm.app import *
-    from simtk.openmm import *
-    from simtk.unit import *
-    import simtk.openmm._openmm as _openmm
+    import openmm.app
 except:
     pass
 
