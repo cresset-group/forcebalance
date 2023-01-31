@@ -371,7 +371,7 @@ class SMIRNOFF(OpenMM):
                 continue
 
             openmm_topology.addAtom(
-                particle.virtual_site.name, app.Element.getByMass(0), openmm_residue
+                particle.virtual_site.name, openmm.app.Element.getByMass(0), openmm_residue
             )
             
         return openmm_topology
@@ -480,7 +480,7 @@ class SMIRNOFF(OpenMM):
                                    # Add placeholder positions for an v-sites.
                                    [Vec3(0.0, 0.0, 0.0)] * n_virtual_sites
                            ) * angstrom
-        self.mod = app.modeller.Modeller(openmm_topology, openmm_positions)
+        self.mod = openmm.app.modeller.Modeller(openmm_topology, openmm_positions)
 
         ## Build a topology and atom lists.
         Top = self.mod.getTopology()
