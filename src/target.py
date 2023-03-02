@@ -365,9 +365,9 @@ class Target(with_metaclass(abc.ABCMeta, forcebalance.BaseClass)):
                     if os.path.exists(CandFile):
                         FileCount += 1
                     else:
-                        # I could use the tarfile module here
                         logger.info("Backing up: " + self.tempdir + ' to: ' + "%s/%s_%i.tar.bz2\n" % (bakdir,self.name,FileCount))
-                        subprocess.call(["tar","cjf",CandFile,self.name])
+                        with tarfile.open("%s/%s_%i.tar.bz2" % (bakdir,self.name,FileCount), 'w:bz2') as archive:
+                            archive.add(CandFile, arcname='')
                         shutil.rmtree(self.name)
                         break
                 os.chdir(cwd)
