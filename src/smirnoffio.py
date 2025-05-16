@@ -457,7 +457,7 @@ class SMIRNOFF(OpenMM):
 
         n_virtual_sites = 0
         self._has_virtual_sites = False
-        if 'VirtualSites' in interchange.handlers:
+        if 'VirtualSites' in interchange.collections:
             n_virtual_sites = len(interchange['VirtualSites'].slot_map)
             if n_virtual_sites > 0:
                 self._has_virtual_sites = True
