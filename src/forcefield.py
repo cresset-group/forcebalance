@@ -109,6 +109,9 @@ from forcebalance.finite_difference import in_fd
 from forcebalance.smirnoffio import assign_openff_parameter
 from forcebalance.nifty import *
 
+import gc
+import functools
+
 # from string import count
 from copy import deepcopy
 import traceback
@@ -1013,6 +1016,15 @@ class FF(forcebalance.BaseClass):
                     )
                     + "\n"
                 )
+
+        # openff-interchange 0.4.1 uses lru_cache to cache the force field data.
+        # This means when the force field changes uses cached data from the previous force field.
+        # So this cache data is now cleared.
+        # https://github.com/openforcefield/openff-interchange/pull/1122
+        gc.collect()
+        for obj in gc.get_objects():
+            if isinstance(obj, functools._lru_cache_wrapper):
+                obj.cache_clear()
 
         if printdir is not None:
             absprintdir = os.path.join(self.root, printdir)
